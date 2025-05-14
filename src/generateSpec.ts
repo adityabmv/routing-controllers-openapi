@@ -164,12 +164,19 @@ export function getPathParams(
       for (const [name, schema] of Object.entries(
         currentSchema?.properties || {}
       )) {
-        params.push({
-          in: 'path',
-          name,
-          required: currentSchema.required?.includes(name),
-          schema,
-        })
+        // Check if the parameter name is already in the params array.
+        const existingParam = params.find((param) => param.name === name)
+        if (existingParam) {
+          // remove and replace with more specific schema
+          params.splice(params.indexOf(existingParam), 1)
+          params.push({
+            in: 'path',
+            name,
+            required: currentSchema.required?.includes(name),
+            schema,
+          })
+          continue
+        }
       }
     }
   }

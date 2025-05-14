@@ -74,7 +74,9 @@ describe('parameters', () => {
     @JsonController('/users')
     // @ts-ignore: not referenced
     class UsersController {
-      @Get('/:string/:regex(\\d{6})/:optional?/:number/:boolean/:any')
+      @Get(
+        '/:string/:regex(\\d{6})/:optional?/:number/:boolean/:any/:id/:name?'
+      )
       getPost(
         @Param('number') _numberParam: number,
         @Param('invalid') _invalidParam: string,
@@ -134,6 +136,18 @@ describe('parameters', () => {
         in: 'path',
         name: 'any',
         required: true,
+        schema: { pattern: '[^\\/#\\?]+?', type: 'string' },
+      },
+      {
+        in: 'path',
+        name: 'id',
+        required: true,
+        schema: { pattern: '[^\\/#\\?]+?', type: 'string' },
+      },
+      {
+        in: 'path',
+        name: 'name',
+        required: false,
         schema: { pattern: '[^\\/#\\?]+?', type: 'string' },
       },
     ])
