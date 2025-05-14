@@ -38,7 +38,7 @@ export function getOperation(
     operationId: getOperationId(route),
     parameters: [
       ...getHeaderParams(route),
-      ...getPathParams(route),
+      ...getPathParams(route, schemas),
       ...getQueryParams(route, schemas),
     ],
     requestBody: getRequestBody(route) || undefined,
@@ -119,11 +119,14 @@ export function getHeaderParams(route: IRoute): oa.ParameterObject[] {
  * Path parameters are first parsed from the path string itself, and then
  * supplemented with possible @Param() decorator values.
  */
-export function getPathParams(route: IRoute): oa.ParameterObject[] {
+export function getPathParams(
+  route: IRoute,
+  schemas: { [p: string]: oa.SchemaObject | oa.ReferenceObject }
+): oa.ParameterObject[] {
   const path = getFullExpressPath(route)
   const tokens = pathToRegexp.parse(path)
 
-  return tokens
+  const params: oa.ParameterObject[] = tokens
     .filter((token) => token && typeof token === 'object') // Omit non-parameter plain string tokens
     .map((token: pathToRegexp.Key) => {
       const name = token.name + ''
@@ -149,6 +152,29 @@ export function getPathParams(route: IRoute): oa.ParameterObject[] {
 
       return param
     })
+
+  const paramsMeta = route.params.find((p) => p.type === 'params')
+  if (paramsMeta) {
+    const paramSchema = getParamSchema(paramsMeta) as oa.ReferenceObject
+    // the last segment after '/'
+    const paramSchemaName = paramSchema.$ref.split('/').pop() || ''
+    const currentSchema = schemas[paramSchemaName]
+
+    if (oa.isSchemaObject(currentSchema)) {
+      for (const [name, schema] of Object.entries(
+        currentSchema?.properties || {}
+      )) {
+        params.push({
+          in: 'path',
+          name,
+          required: currentSchema.required?.includes(name),
+          schema,
+        })
+      }
+    }
+  }
+
+  return params
 }
 
 /**

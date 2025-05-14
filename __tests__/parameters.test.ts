@@ -5,6 +5,7 @@ import {
   HeaderParams,
   JsonController,
   Param,
+  Params,
   QueryParam,
   QueryParams,
 } from 'routing-controllers'
@@ -17,8 +18,17 @@ import {
   parseRoutes,
 } from '../src'
 import { SchemaObject } from 'openapi3-ts'
-import { validationMetadatasToSchemas } from 'class-validator-jsonschema'
-import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator'
+import {
+  JSONSchema,
+  validationMetadatasToSchemas,
+} from 'class-validator-jsonschema'
+import {
+  IsBoolean,
+  IsMongoId,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator'
 const { defaultMetadataStorage } = require('class-transformer/cjs/storage')
 
 describe('parameters', () => {
@@ -40,6 +50,27 @@ describe('parameters', () => {
       types: string[]
     }
 
+    class ListUserParams {
+      @IsMongoId()
+      @IsString()
+      @JSONSchema({
+        description: 'ID of the user',
+        example: '60d5ec49b3f1c8e4a8f8b8c1',
+        type: 'string',
+        format: 'Mongo ObjectId',
+      })
+      id: string
+
+      @IsString()
+      @IsOptional()
+      @JSONSchema({
+        description: 'Name of the user',
+        example: 'John Doe',
+        type: 'string',
+      })
+      name: string
+    }
+
     @JsonController('/users')
     // @ts-ignore: not referenced
     class UsersController {
@@ -52,6 +83,7 @@ describe('parameters', () => {
         @QueryParam('limit') _limit: number,
         @HeaderParam('Authorization', { required: true })
         _authorization: string,
+        @Params() _params: ListUserParams,
         @QueryParams() _queryRef?: ListUsersQueryParams,
         @HeaderParams() _headerParams?: ListUsersHeaderParams
       ) {
@@ -67,7 +99,7 @@ describe('parameters', () => {
   })
 
   it('parses path parameter from path strings', () => {
-    expect(getPathParams({ ...route, params: [] })).toEqual([
+    expect(getPathParams({ ...route, params: [] }, schemas)).toEqual([
       {
         in: 'path',
         name: 'string',
@@ -108,7 +140,51 @@ describe('parameters', () => {
   })
 
   it('supplements path parameter with @Param decorator', () => {
-    expect(getPathParams(route)).toEqual([
+    expect(getPathParams(route, schemas)).toEqual(
+      expect.arrayContaining([
+        {
+          in: 'path',
+          name: 'string',
+          required: true,
+          schema: { pattern: '[^\\/#\\?]+?', type: 'string' },
+        },
+        {
+          in: 'path',
+          name: 'regex',
+          required: true,
+          schema: { pattern: '\\d{6}', type: 'string' },
+        },
+        {
+          in: 'path',
+          name: 'optional',
+          required: false,
+          schema: { pattern: '[^\\/#\\?]+?', type: 'string' },
+        },
+        {
+          in: 'path',
+          name: 'number',
+          required: true,
+          schema: { pattern: '[^\\/#\\?]+?', type: 'number' },
+        },
+        {
+          in: 'path',
+          name: 'boolean',
+          required: true,
+          schema: { pattern: '[^\\/#\\?]+?', type: 'boolean' },
+        },
+        {
+          in: 'path',
+          name: 'any',
+          required: true,
+          schema: {},
+        },
+      ])
+    )
+  })
+
+  it('parses path param ref from @Params decorator', () => {
+    expect(getPathParams(route, schemas)).toEqual([
+      // string comes from path string
       {
         in: 'path',
         name: 'string',
@@ -145,11 +221,25 @@ describe('parameters', () => {
         required: true,
         schema: {},
       },
+      {
+        in: 'path',
+        name: 'id',
+        required: true,
+        schema: {
+          description: 'ID of the user',
+          example: '60d5ec49b3f1c8e4a8f8b8c1',
+          type: 'string',
+          format: 'Mongo ObjectId',
+          pattern: '^[0-9a-fA-F]{24}$',
+        },
+      },
     ])
   })
 
   it('ignores @Param if corresponding name is not found in path string', () => {
-    expect(getPathParams(route).filter((r) => r.name === 'invalid')).toEqual([])
+    expect(
+      getPathParams(route, schemas).filter((r) => r.name === 'invalid')
+    ).toEqual([])
   })
 
   it('parses query param from @QueryParam decorator', () => {
