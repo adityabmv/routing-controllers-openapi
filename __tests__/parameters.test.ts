@@ -233,6 +233,16 @@ describe('parameters', () => {
           pattern: '^[0-9a-fA-F]{24}$',
         },
       },
+      {
+        in: 'path',
+        name: 'name',
+        required: false,
+        schema: {
+          description: 'Name of the user',
+          example: 'John Doe',
+          type: 'string',
+        },
+      },
     ])
   })
 
